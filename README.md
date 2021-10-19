@@ -9,3 +9,5 @@
 실행파일 : object_tracker.py
 
 opencv로 비디오 재생 : videoplay.py
+
+업데이트 상황 : https://github.com/joy-yeah-jump/SquidGame/wiki/Readme
