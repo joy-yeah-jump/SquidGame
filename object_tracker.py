@@ -166,25 +166,41 @@ def main(_argv):
         tracker.predict()
         tracker.update(detections)
 
+        import person_track_id as pti
         # update tracks
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
                 continue 
             bbox = track.to_tlbr()
             class_name = track.get_class()
-            
+
             # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
-            cv2.putText(frame, class_name + "-" + str(track.track_id),(int(bbox[0]), int(bbox[1]-10)),0, 0.75, (255,255,255),2)
+            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(len(class_name)+len(str(track.track_id)))*8, int(bbox[1])), color, -1)
+            cv2.putText(frame, "id-" + str(track.track_id), (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255,255,255),2)
+
+            #red target circle
+            center = (int((bbox[0] + bbox[2]) / 2), int((bbox[1] + bbox[3]) / 2))
+            red = (255, 0, 0)
+            cv2.circle(frame, center, 20, red, 2)
+            cv2.circle(frame, center, 30, red, 2)
+            cv2.line(frame, (center[0] - 15, center[1]), (center[0] - 40, center[1]), red, 2)
+            cv2.line(frame, (center[0] + 15, center[1]), (center[0] + 40, center[1]), red, 2)
+            cv2.line(frame, (center[0], center[1] - 15), (center[0], center[1] - 40), red, 2)
+            cv2.line(frame, (center[0], center[1] + 15), (center[0], center[1] + 40), red, 2)
+
             if not is_1st : # id별로 잡을것
                 coord_1st = bbox[:]
                 is_1st = True
                 print(coord_1st)
+
             # print(track.track_id) # id
             # print(track.to_tlbr()) # coords
+            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1])), (int(coord_1st[2]), int(coord_1st[3])), color, 2)
+            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1] - 30)), (int(coord_1st[0]) + (len(class_name) + len(str(track.track_id)))*12, int(coord_1st[1])), color, -1)
+            cv2.putText(frame, str(track.track_id) + '-first', (int(coord_1st[0]), int(coord_1st[1]-10)), 0, 0.75, (255, 255, 255), 2)
             coord_now = bbox[:]
             now_area = (coord_now[2] - coord_now[0]) * (coord_now[3] - coord_now[1])
             inter_area = 0
@@ -195,9 +211,10 @@ def main(_argv):
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
         if frame_num % 10 == 0 :
-            print('Frame # : {:>6} | FPS     : {:>5.3f}'.format(frame_num, fps))
-            # print(coord_1st, coord_now)
-            print(str(inter_area / now_area * 100) + '%')
+            try:
+                print('Frame # : {:>4} | FPS : {:>5.2f} | {:>6.2f}%'.format(frame_num, fps, inter_area / now_area * 100))
+            except :
+                print("nothing detected or error occured")
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         
