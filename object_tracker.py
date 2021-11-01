@@ -1,5 +1,6 @@
 import os
 # comment out below line to enable tensorflow logging outputs
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import time
 import tensorflow as tf
@@ -29,8 +30,9 @@ from tools import generate_detections as gdet
 
 from moviepy.editor import *
 import pygame
-# pygame.mixer.pre_init(44100, 16, 2, 4096)
+pygame.mixer.pre_init(44100, 16, 2, 4096)
 pygame.init()
+import threading
 
 flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
 flags.DEFINE_boolean('dont_show', False, 'dont show video output')
@@ -48,17 +50,113 @@ flags.DEFINE_boolean('tiny', True, 'yolo or yolo-tiny')
 # flags.DEFINE_string('video', '0', 'path to input video or set to 0 for webcam')
 flags.DEFINE_string('weights', './checkpoints/yolov4-tiny-416', 'path to weights file')
 
-def person_track(vid, tracker, infer, encoder) :
+def play_op_audio(audio_ready, video_ready) :
+    audio = AudioFileClip('OpeningMovie.mp4')
+    audio_ready.set()
+    video_ready.wait()
+    audio.preview(fps=44100)
+
+def play_op_video(audio_ready, video_ready) :
+    video = VideoFileClip('OpeningMovie.mp4', audio=False).resize(width=1920)
+    video_ready.set()
+    audio_ready.wait()
+    video.preview(fps=24)
+
+def opening_video() :
+    # http://zulko.github.io/blog/2013/09/19/a-basic-example-of-threads-synchronization-in-python/
+    audio_ready = threading.Event()
+    video_ready = threading.Event()
+
+    pygame.display.set_caption('opening movie')
+    threading.Thread(target=play_op_audio, args=(audio_ready, video_ready)).start()
+    play_op_video(audio_ready, video_ready)
+
+def intro_screen(intro) :
+    pygame.display.set_caption('init screen')
+    screen = pygame.display.set_mode((1920, 1080))
+    screen.fill([0, 0, 0])  # [0, 0, 0] = black
+    bg = pygame.transform.scale(pygame.image.load("pic3.png"), (1920, 1080))
+    screen.blit(bg, [0, 0])
+    pygame.display.flip()
+
+    while intro:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                intro = False
+                break
+
+        TextSurf = pygame.font.Font('freesansbold.ttf', 180).render("SQUID GAME", True, [255, 0, 0])
+        TextRect = TextSurf.get_rect()
+
+        TextRect.center = (1920 / 2, 180 / 2)  # 1920 = width, 180 = font size
+        screen.blit(TextSurf, TextRect)
+
+        # left button
+        mouse = pygame.mouse.get_pos()
+        click = pygame.mouse.get_pressed()
+
+        # w = width, h = height, c = coordinate, l = length
+        b1_wc, b1_hc, b1_wl, b1_hl = 600, 450, 100, 50
+        if b1_wc + b1_wl > mouse[0] > b1_wc and b1_hc + b1_hl > mouse[1] > b1_hc:
+            pygame.draw.rect(screen, [127, 255, 127], (b1_wc, b1_hc, b1_wl, b1_hl))
+            if click[0]:
+                screen.fill([0, 0, 0])
+                screen.blit(pygame.transform.scale(pygame.image.load('pic1.png'), (1920, 1080)), [0, 0])
+
+                b3Surf = pygame.font.Font('freesansbold.ttf', 40).render("NOW LOADING...", True, [0, 255, 255])
+                b3Rect = b3Surf.get_rect()
+
+                b3Rect.center = (1920 - 180, 1080 - 20)
+                screen.blit(b3Surf, b3Rect)
+
+                pygame.display.update()
+                break
+        else:
+            pygame.draw.rect(screen, [0, 255, 0], (b1_wc, b1_hc, b1_wl, b1_hl))
+
+        b1Surf = pygame.font.Font('freesansbold.ttf', 20).render("GO!", True, [0, 0, 0])
+        b1Rect = b1Surf.get_rect()
+
+        b1Rect.center = ((b1_wc + (b1_wl / 2)), (b1_hc + (b1_hl / 2)))
+        screen.blit(b1Surf, b1Rect)
+
+        # right button
+        b2_wc, b2_hc, b2_wl, b2_hl = 1200, 450, 100, 50
+        pygame.draw.rect(screen, [255, 0, 0], (b2_wc, b2_hc, b2_wl, b2_hl))
+
+        b2Surf = pygame.font.Font('freesansbold.ttf', 20).render("QUIT", True, [0, 0, 0])
+        b2Rect = b2Surf.get_rect()
+
+        b2Rect.center = ((b2_wc + (b2_wl / 2)), (b2_hc + (b2_hl / 2)))
+        screen.blit(b2Surf, b2Rect)
+
+        if b2_wc + b2_wl > mouse[0] > b2_wc and b2_hc + b2_hl > mouse[1] > b2_hc:
+            if click[0]:
+                intro = False
+                break
+
+        pygame.display.update()
+
+def play_tagger_voice() :
+    pygame.mixer.music.load('ko.mp3')
+    pygame.mixer.music.play()
+
+def person_track(vid, tracker, infer, encoder, surface) :
     is_1st = False
     coord_1st = None
     frame_num = 0
-    cam_open_time = time.time()
+    standard_time = time.time()
+    ids = list()
+    turn = False # True : tagger see you
+    tagger_time = 10
+    go_forward_time = 5
+    sec_color = [0, 255, 0] # green
+    threading.Thread(target=play_tagger_voice()).start()
     while True:
         return_value, frame = vid.read()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         frame_num += 1
-        # print('Frame #: ', frame_num)
         frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (416, 416)) # 416 = input_size
         image_data = image_data / 255.
@@ -148,14 +246,21 @@ def person_track(vid, tracker, infer, encoder) :
             bbox = track.to_tlbr()
             class_name = track.get_class()
 
+            # if ids.len < 1 :
+            #     ids.append(pti.PersonTrackId(track.track_id, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])))
+            # else :
+            #     for item in ids :
+            #         if item.id != track.track_id :
+            #             ids.append(pti.PersonTrackId(track.track_id, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])))
+            #         else :
+            #             item.set_coord(track.track_id, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
+
             # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1] - 30)),
-                          (int(bbox[0]) + (len(class_name) + len(str(track.track_id))) * 8, int(bbox[1])), color, -1)
-            cv2.putText(frame, "id-" + str(track.track_id), (int(bbox[0]), int(bbox[1] - 10)), 0, 0.75, (255, 255, 255),
-                        2)
+            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1] - 30)), (int(bbox[0]) + (len(class_name) + len(str(track.track_id))) * 8, int(bbox[1])), color, -1)
+            cv2.putText(frame, "id-" + str(track.track_id), (int(bbox[0]), int(bbox[1] - 10)), 0, 0.75, (255, 255, 255), 2)
 
             # red target circle
             center = (int((bbox[0] + bbox[2]) / 2), int((bbox[1] + bbox[3]) / 2))
@@ -174,164 +279,105 @@ def person_track(vid, tracker, infer, encoder) :
 
             # print(track.track_id) # id
             # print(track.to_tlbr()) # coords
-            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1])), (int(coord_1st[2]), int(coord_1st[3])), color,
-                          2)
-            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1] - 30)),
-                          (int(coord_1st[0]) + (len(class_name) + len(str(track.track_id))) * 12, int(coord_1st[1])),
-                          color, -1)
-            cv2.putText(frame, str(track.track_id) + '-first', (int(coord_1st[0]), int(coord_1st[1] - 10)), 0, 0.75,
-                        (255, 255, 255), 2)
+            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1])), (int(coord_1st[2]), int(coord_1st[3])), color, 2)
+            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1] - 30)), (int(coord_1st[0]) + (len(class_name) + len(str(track.track_id))) * 12, int(coord_1st[1])), color, -1)
+            cv2.putText(frame, str(track.track_id) + '-first', (int(coord_1st[0]), int(coord_1st[1] - 10)), 0, 0.75, (255, 255, 255), 2)
             coord_now = bbox[:]
             now_area = (coord_now[2] - coord_now[0]) * (coord_now[3] - coord_now[1])
             inter_area = 0
-            inter = [max(coord_1st[0], coord_now[0]), max(coord_1st[1], coord_now[1]), min(coord_1st[2], coord_now[2]),
-                     min(coord_1st[3], coord_now[3])]
-            if inter[0] < inter[2] and inter[1] < inter[3]:
-                inter_area = (inter[2] - inter[0]) * (inter[3] - inter[1])
+            inter = [max(coord_1st[0], coord_now[0]), max(coord_1st[1], coord_now[1]), min(coord_1st[2], coord_now[2]), min(coord_1st[3], coord_now[3])]
+            if inter[0] < inter[2] and inter[1] < inter[3] : inter_area = (inter[2] - inter[0]) * (inter[3] - inter[1])
 
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
         if frame_num % 10 == 0:
             try:
-                print(
-                    'Frame # : {:>4} | FPS : {:>5.2f} | {:>6.2f}% | {}sec'.format(frame_num, fps, inter_area / now_area * 100, time.time() - cam_open_time))
+                print('Frame # : {:>4} | FPS : {:>5.2f} | {:>6.2f}% | {:>6.2f}sec'.format(frame_num, fps, inter_area / now_area * 100, time.time() - standard_time))
             except:
                 print("nothing detected or error occured")
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-        cv2.imshow("detecting window", result)
+        surf = pygame.surfarray.make_surface(cv2.cvtColor((np.rot90(np.fliplr(result))), cv2.COLOR_BGR2RGB))
+        if turn :
+            surface.blit(pygame.transform.scale(surf, (1920, 1080)), (0, 0))
+            if time.time() - standard_time > tagger_time : # runner phase
+                standard_time = time.time()
+                turn = False
+                sec_color = [0, 255, 0] # red -> green
+                # play tagger voice by thread
+                threading.Thread(target=play_tagger_voice()).start()
+        else :
+            surface.blit(pygame.transform.scale(pygame.image.load("pic4.png"), (1920, 1080)), [0, 0])
+            if time.time() - standard_time > go_forward_time : # tagger phase
+                standard_time = time.time()
+                turn = True
+                sec_color = [255, 0, 0] # green -> red
+                is_1st = False
+
+        # for debug, timer show
+        secSurf = pygame.font.Font('freesansbold.ttf', 180).render('{:>5.2f}'.format(time.time() - standard_time), True, sec_color)
+        secRect = secSurf.get_rect()
+        secRect.center = (180, 90)  # 1920 = width, 180 = font size
+        surface.blit(secSurf, secRect)
+
+        pygame.display.flip()
+
         # cv2.imshow("detecting window", result) # no webcam window
         if cv2.waitKey(1) & 0xFF == ord('q'): break
         for event in pygame.event.get() :
             if event.type == pygame.QUIT : break
 
 def main(_argv):
+    # opening phase
+    opening_video()
+
+    # intro phase
+    intro = True
+    intro_screen(intro)
+
+    if not intro:
+        pygame.quit()
+        quit()
+
+    # loading phase
     # Definition of the parameters
     max_cosine_distance = 0.4
-    nn_budget = None
-    nms_max_overlap = 1.0
+    nn_budget = None # nms_max_overlap = 1.0
     
     # initialize deep sort
     model_filename = 'model_data/mars-small128.pb'
     encoder = gdet.create_box_encoder(model_filename, batch_size=1)
-    # calculate cosine distance metric
-    metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
-    # initialize tracker
-    tracker = Tracker(metric)
+    metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget) # calculate cosine distance metric
+    tracker = Tracker(metric) # initialize tracker
 
     # load configuration for object detector
     config = ConfigProto()
     config.gpu_options.allow_growth = True
     session = InteractiveSession(config=config)
     STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
-    # input_size = FLAGS.size #416
-    # video_path = FLAGS.video
 
     # load model
     saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
-    infer = saved_model_loaded.signatures['serving_default']
-    # out = None
+    infer = saved_model_loaded.signatures['serving_default'] # out = None
 
-    vid = cv2.VideoCapture(0) # 0 = int(video_path) = webcam
-
-    pygame.display.set_caption("tagger saying")
-    # cannot play gif. show stopped image
-    pygame.display.set_mode((640, 360)).blit(pygame.transform.scale(pygame.image.load("see_back.gif"), (640, 360)), [0, 0])
-    pygame.display.update()
-    pygame.mixer.music.load(os.path.dirname(os.path.abspath(__file__)) + '\\ko.mp3')
-    pygame.mixer.music.play()
-
+    # main game phase
     # begin video capture
-    person_track(vid, tracker, infer, encoder) # while video is running
-    cv2.destroyAllWindows()
-    pygame.quit()
+    vid = cv2.VideoCapture(0) # 0 = int(video_path) = webcam
+    vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) # will get from webcam max constant?
+    vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    # print('wait 5 sec')
-    # time.sleep(5)
-    # vid = cv2.VideoCapture(0)
-    # person_track(vid, tracker, infer, encoder)
-    # cv2.destroyAllWindows()
+    pygame.display.set_caption("main game playing")
+    surface = pygame.display.set_mode((1920, 1080)) # screen succeed?
+    surface.blit(pygame.transform.scale(pygame.image.load("pic4.png"), (1920, 1080)), [0, 0])
+    pygame.display.update()
+
+    person_track(vid, tracker, infer, encoder, surface) # while video is running
+    pygame.quit()
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     try:
-        pygame.display.set_caption('opening movie')
-        clip = VideoFileClip('./data/video/cars.mp4')
-        clip.resize((640, 360)).preview()
-
-        pygame.display.set_caption('init screen')
-        screen = pygame.display.set_mode((640, 360))
-        screen.fill([0, 0, 0]) #[0, 0, 0] = black
-        bg = pygame.transform.scale(pygame.image.load("init_image.png"), (640, 360))
-        screen.blit(bg, [0, 0])
-        pygame.display.flip()
-
-        intro = True
-
-        while intro :
-            for event in pygame.event.get() :
-                if event.type == pygame.QUIT :
-                    intro = False
-                    break;
-
-            TextSurf = pygame.font.Font('freesansbold.ttf', 60).render("SQUID GAME", True, [0, 0, 0])
-            TextRect = TextSurf.get_rect()
-
-            TextRect.center = ((640/2), 30) # width = 640, height = 360
-            screen.blit(TextSurf, TextRect)
-
-            # left button
-            mouse = pygame.mouse.get_pos()
-            click = pygame.mouse.get_pressed()
-
-            # w = width, h = height, c = coordinate, l = length
-            b1_wc, b1_hc, b1_wl, b1_hl = 100, 310, 100, 50
-            if b1_wc+b1_wl > mouse[0] > b1_wc and b1_hc+b1_hl > mouse[1] > b1_hc :
-                pygame.draw.rect(screen, [127, 255, 127], (b1_wc, b1_hc, b1_wl, b1_hl))
-                if click[0] :
-                    screen.fill([0, 0, 0])
-
-                    # right bottom text : now loading...
-                    b3_wc, b3_hc, b3_wl, b3_hl = 450, 310, 100, 50
-
-                    b3Surf = pygame.font.Font('freesansbold.ttf', 20).render("NOW LOADING...", True, [255, 255, 255])
-                    b3Rect = b3Surf.get_rect()
-
-                    b3Rect.center = ((b3_wc + (b3_wl/2)), (b3_hc + (b3_hl/2)))
-                    screen.blit(b3Surf, b3Rect)
-
-                    pygame.display.update()
-                    break
-            else :
-                pygame.draw.rect(screen, [0, 255, 0], (b1_wc, b1_hc, b1_wl, b1_hl))
-
-            b1Surf = pygame.font.Font('freesansbold.ttf', 20).render("GO!", True, [0, 0, 0])
-            b1Rect = b1Surf.get_rect()
-
-            b1Rect.center = ((b1_wc+(b1_wl/2)), (b1_hc+(b1_hl/2)))
-            screen.blit(b1Surf, b1Rect)
-
-
-            # right button
-            b2_wc, b2_hc, b2_wl, b2_hl = 450, 310, 100, 50
-            pygame.draw.rect(screen, [255, 0, 0], (b2_wc, b2_hc, b2_wl, b2_hl))
-
-            b2Surf = pygame.font.Font('freesansbold.ttf', 20).render("QUIT", True, [0, 0, 0])
-            b2Rect = b2Surf.get_rect()
-
-            b2Rect.center = ((b2_wc+(b2_wl/2)), (b2_hc+(b2_hl/2)))
-            screen.blit(b2Surf, b2Rect)
-
-            if b2_wc+b2_wl > mouse[0] > b2_wc and b2_hc+b2_hl > mouse[1] > b2_hc :
-                if click[0] :
-                    intro = False
-                    break;
-
-            pygame.display.update()
-
-        if not intro :
-            pygame.quit()
-            quit()
-        else : app.run(main)
+        app.run(main)
     except SystemExit:
         pass
