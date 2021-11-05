@@ -33,3 +33,25 @@ class PersonTrackId :
         if self.inx1 < self.inx2 and self.iny1 < self.iny2 :
             self.inter = (self.inx2 - self.inx1) * (self.iny2 - self.iny1)
         else : self.inter = -1
+
+    def to_string(self):
+        return "id"
+
+    def get_id(self):
+        return self.id
+
+    def get_first(self):
+        temp = list()
+        temp.append(self.ix1)
+        temp.append(self.iy1)
+        temp.append(self.ix2)
+        temp.append(self.iy2)
+        return temp
+
+    def get_last(self):
+        temp = list()
+        temp.append(self.lx1)
+        temp.append(self.ly1)
+        temp.append(self.lx2)
+        temp.append(self.ly2)
+        return temp

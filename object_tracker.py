@@ -50,6 +50,12 @@ flags.DEFINE_boolean('tiny', True, 'yolo or yolo-tiny')
 # flags.DEFINE_string('video', '0', 'path to input video or set to 0 for webcam')
 flags.DEFINE_string('weights', './checkpoints/yolov4-tiny-416', 'path to weights file')
 
+# global is_game
+# def pygame_event() :
+#     while True :
+#         for event in pygame.event.get() :
+#             if event.type == pygame.QUIT : is_game = False
+
 def play_op_audio(audio_ready, video_ready) :
     audio = AudioFileClip('OpeningMovie.mp4')
     audio_ready.set()
@@ -142,14 +148,13 @@ def play_tagger_voice() :
     pygame.mixer.music.play()
 
 def person_track(vid, tracker, infer, encoder, surface) :
-    is_1st = False
-    coord_1st = None
+    coord_1st = list()
     frame_num = 0
     standard_time = time.time()
-    ids = list()
+    # ids = list()
     turn = False # True : tagger see you
-    tagger_time = 10
-    go_forward_time = 5
+    go_forward_time = 3
+    tagger_time = 5
     sec_color = [0, 255, 0] # green
     threading.Thread(target=play_tagger_voice()).start()
     while True:
@@ -241,19 +246,23 @@ def person_track(vid, tracker, infer, encoder, surface) :
         import person_track_id as pti
         # update tracks
         for track in tracker.tracks:
+            if not turn : continue
             if not track.is_confirmed() or track.time_since_update > 1:
                 continue
             bbox = track.to_tlbr()
             class_name = track.get_class()
 
-            # if ids.len < 1 :
-            #     ids.append(pti.PersonTrackId(track.track_id, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])))
-            # else :
-            #     for item in ids :
-            #         if item.id != track.track_id :
-            #             ids.append(pti.PersonTrackId(track.track_id, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])))
-            #         else :
-            #             item.set_coord(track.track_id, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
+            if len(coord_1st) < 1:
+                coord_1st.append([int(track.track_id), int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])])
+            else :
+                for item in coord_1st :
+                    if item[0] != int(track.track_id) :
+                        coord_1st.append([int(track.track_id), int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])])
+
+            now = list()
+            for item in coord_1st :
+                if item[0] == int(track.track_id) : now = item
+            # print(now)
 
             # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
@@ -261,6 +270,10 @@ def person_track(vid, tracker, infer, encoder, surface) :
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1] - 30)), (int(bbox[0]) + (len(class_name) + len(str(track.track_id))) * 8, int(bbox[1])), color, -1)
             cv2.putText(frame, "id-" + str(track.track_id), (int(bbox[0]), int(bbox[1] - 10)), 0, 0.75, (255, 255, 255), 2)
+
+            # cv2.rectangle(frame, (now_id[1], now_id[2]), (now_id[3], now_id[4]), color, 2)
+            # cv2.rectangle(frame, (now_id[1], now_id[2] - 30), (now_id[1] + 64, now_id[2]), color, -1)
+            # cv2.putText(frame, "id-" + str(now_id[0]), (now_id[1], now_id[2] - 10), 0, 0.75, (255, 255, 255), 2)
 
             # red target circle
             center = (int((bbox[0] + bbox[2]) / 2), int((bbox[1] + bbox[3]) / 2))
@@ -272,21 +285,17 @@ def person_track(vid, tracker, infer, encoder, surface) :
             cv2.line(frame, (center[0], center[1] - 15), (center[0], center[1] - 40), red, 2)
             cv2.line(frame, (center[0], center[1] + 15), (center[0], center[1] + 40), red, 2)
 
-            if not is_1st:  # id별로 잡을것
-                coord_1st = bbox[:]
-                is_1st = True
-                print(coord_1st)
-
             # print(track.track_id) # id
             # print(track.to_tlbr()) # coords
-            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1])), (int(coord_1st[2]), int(coord_1st[3])), color, 2)
-            cv2.rectangle(frame, (int(coord_1st[0]), int(coord_1st[1] - 30)), (int(coord_1st[0]) + (len(class_name) + len(str(track.track_id))) * 12, int(coord_1st[1])), color, -1)
-            cv2.putText(frame, str(track.track_id) + '-first', (int(coord_1st[0]), int(coord_1st[1] - 10)), 0, 0.75, (255, 255, 255), 2)
-            coord_now = bbox[:]
-            now_area = (coord_now[2] - coord_now[0]) * (coord_now[3] - coord_now[1])
             inter_area = 0
-            inter = [max(coord_1st[0], coord_now[0]), max(coord_1st[1], coord_now[1]), min(coord_1st[2], coord_now[2]), min(coord_1st[3], coord_now[3])]
-            if inter[0] < inter[2] and inter[1] < inter[3] : inter_area = (inter[2] - inter[0]) * (inter[3] - inter[1])
+            if now :
+                cv2.rectangle(frame, (int(now[1]), int(now[2])), (int(now[3]), int(now[4])), color, 2)
+                cv2.rectangle(frame, (int(now[1]), int(now[2] - 30)), (int(now[1]) + (len(class_name) + len(str(track.track_id))) * 12, int(now[2])), color, -1)
+                cv2.putText(frame, str(track.track_id) + '-first', (int(now[1]), int(now[2] - 10)), 0, 0.75, (255, 255, 255), 2)
+                coord_now = bbox[:]
+                now_area = (coord_now[2] - coord_now[0]) * (coord_now[3] - coord_now[1])
+                inter = [max(now[1], coord_now[0]), max(now[2], coord_now[1]), min(now[3], coord_now[2]), min(now[4], coord_now[3])]
+                if inter[0] < inter[2] and inter[1] < inter[3] : inter_area = (inter[2] - inter[0]) * (inter[3] - inter[1])
 
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
@@ -314,6 +323,7 @@ def person_track(vid, tracker, infer, encoder, surface) :
                 turn = True
                 sec_color = [255, 0, 0] # green -> red
                 is_1st = False
+                coord_1st = list()
 
         # for debug, timer show
         secSurf = pygame.font.Font('freesansbold.ttf', 180).render('{:>5.2f}'.format(time.time() - standard_time), True, sec_color)
@@ -324,7 +334,7 @@ def person_track(vid, tracker, infer, encoder, surface) :
         pygame.display.flip()
 
         # cv2.imshow("detecting window", result) # no webcam window
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        # if cv2.waitKey(1) & 0xFF == ord('q'): break
         for event in pygame.event.get() :
             if event.type == pygame.QUIT : break
 
