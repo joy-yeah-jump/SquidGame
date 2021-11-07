@@ -50,12 +50,6 @@ flags.DEFINE_boolean('tiny', True, 'yolo or yolo-tiny')
 # flags.DEFINE_string('video', '0', 'path to input video or set to 0 for webcam')
 flags.DEFINE_string('weights', './checkpoints/yolov4-tiny-416', 'path to weights file')
 
-# global is_game
-# def pygame_event() :
-#     while True :
-#         for event in pygame.event.get() :
-#             if event.type == pygame.QUIT : is_game = False
-
 def play_op_audio(audio_ready, video_ready) :
     audio = AudioFileClip('OpeningMovie.mp4')
     audio_ready.set()
@@ -77,7 +71,7 @@ def opening_video() :
     threading.Thread(target=play_op_audio, args=(audio_ready, video_ready)).start()
     play_op_video(audio_ready, video_ready)
 
-def intro_screen(intro) :
+def intro_screen() :
     pygame.display.set_caption('init screen')
     screen = pygame.display.set_mode((1920, 1080))
     screen.fill([0, 0, 0])  # [0, 0, 0] = black
@@ -85,11 +79,11 @@ def intro_screen(intro) :
     screen.blit(bg, [0, 0])
     pygame.display.flip()
 
-    while intro:
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                intro = False
-                break
+                pygame.quit()
+                sys.exit()
 
         TextSurf = pygame.font.Font('freesansbold.ttf', 180).render("SQUID GAME", True, [255, 0, 0])
         TextRect = TextSurf.get_rect()
@@ -138,8 +132,8 @@ def intro_screen(intro) :
 
         if b2_wc + b2_wl > mouse[0] > b2_wc and b2_hc + b2_hl > mouse[1] > b2_hc:
             if click[0]:
-                intro = False
-                break
+                pygame.quit()
+                sys.exit()
 
         pygame.display.update()
 
@@ -147,19 +141,29 @@ def play_tagger_voice() :
     pygame.mixer.music.load('ko.mp3')
     pygame.mixer.music.play()
 
+def get_go_forward_time() :
+    threading.Thread(target=play_tagger_voice()).start()
+    return 3
+
+def get_tagger_time() :
+    return 5
+
 def person_track(vid, tracker, infer, encoder, surface) :
-    coord_1st = list()
     frame_num = 0
     standard_time = time.time()
-    # ids = list()
+    coord_1st = list()
+    area_percent_list = list()
     turn = False # True : tagger see you
-    go_forward_time = 3
-    tagger_time = 5
+    go_forward_time = get_go_forward_time()
+    tagger_time = get_tagger_time()
     sec_color = [0, 255, 0] # green
-    threading.Thread(target=play_tagger_voice()).start()
     while True:
         return_value, frame = vid.read()
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        try :
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        except :
+            print('cv2 cannot get frame. fuck')
+            continue
 
         frame_num += 1
         frame_size = frame.shape[:2]
@@ -243,6 +247,12 @@ def person_track(vid, tracker, infer, encoder, surface) :
         tracker.predict()
         tracker.update(detections)
 
+        for event in pygame.event.get() :
+            if event.type == pygame.QUIT :
+                pygame.quit()
+                sys.exit()
+                break
+
         import person_track_id as pti
         # update tracks
         for track in tracker.tracks:
@@ -255,25 +265,25 @@ def person_track(vid, tracker, infer, encoder, surface) :
             if len(coord_1st) < 1:
                 coord_1st.append([int(track.track_id), int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])])
             else :
+                is_exist = False
                 for item in coord_1st :
-                    if item[0] != int(track.track_id) :
-                        coord_1st.append([int(track.track_id), int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])])
+                    if item[0] == int(track.track_id) : is_exist = True
+                if not is_exist : coord_1st.append([int(track.track_id), int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])])
 
             now = list()
             for item in coord_1st :
                 if item[0] == int(track.track_id) : now = item
-            # print(now)
 
-            # draw bbox on screen
+            # draw bbox(now coordinate) on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1] - 30)), (int(bbox[0]) + (len(class_name) + len(str(track.track_id))) * 8, int(bbox[1])), color, -1)
+            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1] - 30)), (int(bbox[0]) + 64, int(bbox[1])), color, -1)
             cv2.putText(frame, "id-" + str(track.track_id), (int(bbox[0]), int(bbox[1] - 10)), 0, 0.75, (255, 255, 255), 2)
 
-            # cv2.rectangle(frame, (now_id[1], now_id[2]), (now_id[3], now_id[4]), color, 2)
-            # cv2.rectangle(frame, (now_id[1], now_id[2] - 30), (now_id[1] + 64, now_id[2]), color, -1)
-            # cv2.putText(frame, "id-" + str(now_id[0]), (now_id[1], now_id[2] - 10), 0, 0.75, (255, 255, 255), 2)
+            # cv2.rectangle(frame, (now[1], now[2]), (now[3], now[4]), color, 2)
+            # cv2.rectangle(frame, (now[1], now[2] - 30), (now[1] + 64, now[2]), color, -1)
+            # cv2.putText(frame, str(now[0]) + "-id", (now[1], now[2] - 10), 0, 0.75, (255, 255, 255), 2)
 
             # red target circle
             center = (int((bbox[0] + bbox[2]) / 2), int((bbox[1] + bbox[3]) / 2))
@@ -285,44 +295,50 @@ def person_track(vid, tracker, infer, encoder, surface) :
             cv2.line(frame, (center[0], center[1] - 15), (center[0], center[1] - 40), red, 2)
             cv2.line(frame, (center[0], center[1] + 15), (center[0], center[1] + 40), red, 2)
 
-            # print(track.track_id) # id
-            # print(track.to_tlbr()) # coords
-            inter_area = 0
+            # draw rectangle by first coordinate, calculate intersection area percentage
             if now :
                 cv2.rectangle(frame, (int(now[1]), int(now[2])), (int(now[3]), int(now[4])), color, 2)
-                cv2.rectangle(frame, (int(now[1]), int(now[2] - 30)), (int(now[1]) + (len(class_name) + len(str(track.track_id))) * 12, int(now[2])), color, -1)
+                cv2.rectangle(frame, (int(now[1]), int(now[2] - 30)), (int(now[1]) + 120, int(now[2])), color, -1)
                 cv2.putText(frame, str(track.track_id) + '-first', (int(now[1]), int(now[2] - 10)), 0, 0.75, (255, 255, 255), 2)
                 coord_now = bbox[:]
+                inter_area = 0
                 now_area = (coord_now[2] - coord_now[0]) * (coord_now[3] - coord_now[1])
                 inter = [max(now[1], coord_now[0]), max(now[2], coord_now[1]), min(now[3], coord_now[2]), min(now[4], coord_now[3])]
                 if inter[0] < inter[2] and inter[1] < inter[3] : inter_area = (inter[2] - inter[0]) * (inter[3] - inter[1])
+                area_percent_list.append((track.track_id, inter_area / now_area * 100))
 
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
         if frame_num % 10 == 0:
             try:
-                print('Frame # : {:>4} | FPS : {:>5.2f} | {:>6.2f}% | {:>6.2f}sec'.format(frame_num, fps, inter_area / now_area * 100, time.time() - standard_time))
+                # print('Frame # : {:>4} | FPS : {:>5.2f} | {:>6.2f}% | {:>6.2f}sec'
+                # .format(frame_num, fps, inter_area / now_area * 100, time.time() - standard_time))
+                print('Frame # : {:>4} | FPS : {:>5.2f}'.format(frame_num, fps))
+                for key, value in area_percent_list :
+                    print('id : {:>3} | area : {:>6.2f}%'.format(key, value))
             except:
                 print("nothing detected or error occured")
+
+        area_percent_list = list()
+
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         surf = pygame.surfarray.make_surface(cv2.cvtColor((np.rot90(np.fliplr(result))), cv2.COLOR_BGR2RGB))
         if turn :
             surface.blit(pygame.transform.scale(surf, (1920, 1080)), (0, 0))
-            if time.time() - standard_time > tagger_time : # runner phase
+            if time.time() - standard_time > tagger_time : # tagger -> runner phase
+                go_forward_time = get_go_forward_time()
                 standard_time = time.time()
                 turn = False
                 sec_color = [0, 255, 0] # red -> green
-                # play tagger voice by thread
-                threading.Thread(target=play_tagger_voice()).start()
         else :
             surface.blit(pygame.transform.scale(pygame.image.load("pic4.png"), (1920, 1080)), [0, 0])
-            if time.time() - standard_time > go_forward_time : # tagger phase
+            if time.time() - standard_time > go_forward_time : # runner -> tagger phase
+                tagger_time = get_tagger_time()
                 standard_time = time.time()
                 turn = True
                 sec_color = [255, 0, 0] # green -> red
-                is_1st = False
                 coord_1st = list()
 
         # for debug, timer show
@@ -335,20 +351,13 @@ def person_track(vid, tracker, infer, encoder, surface) :
 
         # cv2.imshow("detecting window", result) # no webcam window
         # if cv2.waitKey(1) & 0xFF == ord('q'): break
-        for event in pygame.event.get() :
-            if event.type == pygame.QUIT : break
 
 def main(_argv):
     # opening phase
     opening_video()
 
     # intro phase
-    intro = True
-    intro_screen(intro)
-
-    if not intro:
-        pygame.quit()
-        quit()
+    intro_screen()
 
     # loading phase
     # Definition of the parameters
