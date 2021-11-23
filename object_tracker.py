@@ -2,7 +2,6 @@ import os
 # comment out below line to enable tensorflow logging outputs
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# os.environ['IMAGEIO_FFMPEG_EXE'] = './ffmpeg-4.4.1-essentials_build/bin/ffmpeg.exe' # 맞아 이거 시발?
 os.environ['IMAGEIO_FFMPEG_EXE'] = './ffmpeg.exe'
 import time
 import tensorflow as tf
@@ -47,11 +46,7 @@ flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
 flags.DEFINE_string('output', None, 'path to output video')
 flags.DEFINE_string('output_format', 'XVID', 'codec used in VideoWriter when saving video to file')
 flags.DEFINE_float('score', 0.50, 'score threshold')
-# flags.DEFINE_integer('size', 416, 'resize images to')
-# flags.DEFINE_boolean('tiny', False, 'yolo or yolo-tiny')
 flags.DEFINE_boolean('tiny', True, 'yolo or yolo-tiny')
-# flags.DEFINE_string('video', './data/video/test.mp4', 'path to input video or set to 0 for webcam')
-# flags.DEFINE_string('video', '0', 'path to input video or set to 0 for webcam')
 flags.DEFINE_string('weights', './checkpoints/yolov4-tiny-416', 'path to weights file')
 
 def play_op_audio(audio_ready, video_ready) :
@@ -67,7 +62,6 @@ def play_op_video(audio_ready, video_ready) :
     video.preview(fps=24)
 
 def opening_video() :
-    # http://zulko.github.io/blog/2013/09/19/a-basic-example-of-threads-synchronization-in-python/
     audio_ready = threading.Event()
     video_ready = threading.Event()
 
@@ -89,52 +83,21 @@ def intro_screen() :
                 pygame.quit()
                 sys.exit()
 
-        # TextSurf = pygame.font.Font('freesansbold.ttf', 180).render("SQUID GAME", True, [255, 0, 0])
-        # TextRect = TextSurf.get_rect()
-        #
-        # TextRect.center = (1920 / 2, 180 / 2)  # 1920 = width, 180 = font size
-        # screen.blit(TextSurf, TextRect)
-
         # left button
         mouse = pygame.mouse.get_pos()
         click = pygame.mouse.get_pressed()
 
         # w = width, h = height, c = coordinate, l = length
-        b1_wc, b1_hc, b1_wl, b1_hl = 497, 456, 128, 83
+        b1_wc, b1_hc, b1_wl, b1_hl = 491, 369, 173, 260
         if b1_wc + b1_wl > mouse[0] > b1_wc and b1_hc + b1_hl > mouse[1] > b1_hc:
-            # pygame.draw.rect(screen, [127, 255, 127], (b1_wc, b1_hc, b1_wl, b1_hl))
             if click[0]:
                 screen.fill([0, 0, 0])
                 screen.blit(pygame.transform.scale(pygame.image.load('loading.png'), (1920, 1080)), [0, 0])
-
-                # b3Surf = pygame.font.Font('freesansbold.ttf', 40).render("NOW LOADING...", True, [0, 255, 255])
-                # b3Rect = b3Surf.get_rect()
-                #
-                # b3Rect.center = (1920 - 180, 1080 - 20)
-                # screen.blit(b3Surf, b3Rect)
-
                 pygame.display.update()
                 break
-        else:
-            # pygame.draw.rect(screen, [0, 255, 0], (b1_wc, b1_hc, b1_wl, b1_hl))
-            pass
-
-        # b1Surf = pygame.font.Font('freesansbold.ttf', 20).render("GO!", True, [0, 0, 0])
-        # b1Rect = b1Surf.get_rect()
-        #
-        # b1Rect.center = ((b1_wc + (b1_wl / 2)), (b1_hc + (b1_hl / 2)))
-        # screen.blit(b1Surf, b1Rect)
 
         # right button
-        b2_wc, b2_hc, b2_wl, b2_hl = 1296, 454, 130, 83
-        # pygame.draw.rect(screen, [255, 0, 0], (b2_wc, b2_hc, b2_wl, b2_hl))
-        #
-        # b2Surf = pygame.font.Font('freesansbold.ttf', 20).render("QUIT", True, [0, 0, 0])
-        # b2Rect = b2Surf.get_rect()
-        #
-        # b2Rect.center = ((b2_wc + (b2_wl / 2)), (b2_hc + (b2_hl / 2)))
-        # screen.blit(b2Surf, b2Rect)
-
+        b2_wc, b2_hc, b2_wl, b2_hl = 1216, 376, 172, 259
         if b2_wc + b2_wl > mouse[0] > b2_wc and b2_hc + b2_hl > mouse[1] > b2_hc:
             if click[0]:
                 pygame.quit()
@@ -143,7 +106,7 @@ def intro_screen() :
         pygame.display.update()
 
 def play_tagger_voice(rint) :
-    f = 'voice' + str(rint) + '.mp3'
+    f = './voice/' + str(rint) + '.mp3'
     pygame.mixer.music.load(f)
     pygame.mixer.music.play()
 
@@ -174,8 +137,16 @@ def draw_bbox(frame, color, bbox, id) :
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
     cv2.rectangle(frame, (int((x1+x2)/2)-m, int((y1+y2)/2-m/2)), (int((x1+x2)/2)+m, int((y1+y2)/2+m/2)), color, -1)
     cv2.putText(frame, str(id), (int((x1+x2)/2)-id_a[len(str(id))], int((y1+y2)/2)+8), 0, 1, (255, 255, 255), 2)
-    # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1] - 30)), (int(bbox[0]) + 64, int(bbox[1])), color, -1)
-    # cv2.putText(frame, "id-" + str(track.track_id), (int(bbox[0]), int(bbox[1] - 10)), 0, 0.75, (255, 255, 255), 2)
+
+def play_dying_voice(path) :
+    pygame.mixer.music.load(path)
+    pygame.mixer.music.play()
+
+def dying_voice(id) :
+    speak_str = str(id) + '번 탈락'
+    path = './voice/dead' + str(id) + '.mp3'
+    gTTS(text=speak_str, lang='ko', slow=False).save(path)
+    threading.Thread(target=play_dying_voice(path)).start()
 
 def person_track(vid, tracker, infer, encoder, surface) :
     frame_num = 0
@@ -183,11 +154,9 @@ def person_track(vid, tracker, infer, encoder, surface) :
     coord_1st = list()
     area_percent_list = list()
     turn = False # True : tagger see you
-    go_forward_time = 5 #auth ids
-    # go_forward_time = get_go_forward_time()
+    go_forward_time = 5 # auth ids
     tagger_time = get_tagger_time()
-    end_time = standard_time + 10 + go_forward_time
-    # sec_color = [255, 0, 0] # red
+    end_time = standard_time + 30 + go_forward_time
     id_authing = True
     id_authed = list() # [id(int), entry_time(int), dead_time(int), alive(bool)]
     while True:
@@ -195,8 +164,10 @@ def person_track(vid, tracker, infer, encoder, surface) :
         try :
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         except :
-            print('cv2 cannot get frame. fuck')
-            continue
+            # add voice : webcam cannot use
+            pygame.mixer.music.load('./voice/error.mp3')
+            pygame.mixer.music.play()
+            return False
 
         frame_num += 1
         frame_size = frame.shape[:2]
@@ -298,7 +269,6 @@ def person_track(vid, tracker, infer, encoder, surface) :
             if id_authing :
                 if not is_exist_id(id_authed, int(track.track_id)) :
                     temp = [int(track.track_id), time.time(), 0, True]
-                    # print(temp)
                     id_authed.append(temp)
                 draw_bbox(frame, color, bbox, track.track_id)
                 continue
@@ -320,15 +290,10 @@ def person_track(vid, tracker, infer, encoder, surface) :
 
             # draw bbox(now coordinate) on screen
             draw_bbox(frame, color, bbox, track.track_id)
-            # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-            # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1] - 30)), (int(bbox[0]) + 64, int(bbox[1])), color, -1)
-            # cv2.putText(frame, "id-" + str(track.track_id), (int(bbox[0]), int(bbox[1] - 10)), 0, 0.75, (255, 255, 255), 2)
-
 
             # draw rectangle by first coordinate, calculate intersection area percentage
             if now :
                 # first coordinate
-                # draw_bbox(frame, color, now[1:], track.track_id)
                 coord_now = bbox[:]
                 inter_area = 0
                 now_area = (coord_now[2] - coord_now[0]) * (coord_now[3] - coord_now[1])
@@ -351,11 +316,7 @@ def person_track(vid, tracker, infer, encoder, surface) :
 
                     # dead processing : voice, time added
                     tagger_time += 2
-                    speak_str = str(track.track_id*2) + '번 탈락'
-                    gTTS(text=speak_str, lang='ko', slow=False).save('temp.mp3')
-                    pygame.mixer.music.load('temp.mp3')
-                    pygame.mixer.music.play()
-                    time.sleep(2)
+                    dying_voice(track.track_id)
 
                     for i in id_authed :
                         if i[0] == track.track_id :
@@ -367,27 +328,9 @@ def person_track(vid, tracker, infer, encoder, surface) :
                 if end_time < time.time() :
                     for i in id_authed :
                         if i[0] == track.track_id :
+                            i[2] = time.time()
                             i[3] = False
                             print("id : {} | time : over".format(i[0]))
-
-        if not id_authing :
-            # calculate frames per second of running detections
-            fps = 1.0 / (time.time() - start_time)
-            if frame_num % 10 == 0:
-                try:
-                    # print('Frame # : {:>4} | FPS : {:>5.2f} | {:>6.2f}% | {:>6.2f}sec'
-                    # .format(frame_num, fps, inter_area / now_area * 100, time.time() - standard_time))
-                    print('Frame # : {:>4} | FPS : {:>5.2f}'.format(frame_num, fps))
-                    for key, value in area_percent_list :
-                        print('id : {:>3} | area : {:>6.2f}%'.format(key, value))
-                except:
-                    print("nothing detected or error occured")
-
-        # area_percent_list = list()
-
-        # result = np.asarray(frame)
-        # result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        # surf = pygame.surfarray.make_surface(cv2.cvtColor((np.rot90(np.fliplr(result))), cv2.COLOR_BGR2RGB))
 
         alive = 0
         for item in id_authed :
@@ -400,8 +343,6 @@ def person_track(vid, tracker, infer, encoder, surface) :
                 go_forward_time = get_go_forward_time()
                 standard_time = time.time()
                 turn = False
-                # sec_color = [0, 255, 0] # red -> green
-                # print(id_authed)
         else :
             surface.blit(pygame.transform.scale(pygame.image.load("tagger.png"), (1920, 1080)), [0, 0])
             if id_authing : surface.blit(pygame.transform.scale(surf, (1920, 1080)), (0, 0))
@@ -410,23 +351,22 @@ def person_track(vid, tracker, infer, encoder, surface) :
                     id_authing = False
                     go_forward_time = get_go_forward_time()
                     standard_time = time.time()
+                    for item in id_authed : item[1] = standard_time
+                    print("player(id, start time, death time, alive)")
                     print(id_authed)
                 else :
                     tagger_time = get_tagger_time()
                     standard_time = time.time()
                     turn = True
-                    # sec_color = [255, 0, 0] # green -> red
                     coord_1st = list()
-                    # print(id_authed)
 
         secSurf = pygame.font.Font('H2GTRE.TTF', 90).render(str(alive) + '생존', True, [0, 255, 0])
         secRect = secSurf.get_rect()
-        secRect.center = (1770, 45)  # 1920 = width, 180 = font size
+        secRect.center = (1800, 50)  # 1920 = width, 180 = font size
         surface.blit(secSurf, secRect)
 
         # timer
         if not id_authing :
-            # for debug, timer show
             display_time = end_time - time.time()
             if display_time < 0 : display_time = 0
             secSurf = pygame.font.Font('freesansbold.ttf', 180).render('{:>3.0f}'.format(display_time), True, [255, 0, 0])
@@ -436,20 +376,101 @@ def person_track(vid, tracker, infer, encoder, surface) :
 
             # game end : no alive or time over
             if alive == 0 or end_time + 2 < time.time() :
-                pygame.mixer.music.load('end_voice.mp3')
+                pygame.mixer.music.load('./voice/end_voice.mp3')
                 pygame.mixer.music.play()
-                time.sleep(2)
                 return id_authed
 
         pygame.display.flip()
 
-        # cv2.imshow("detecting window", result) # no webcam window
-        # if cv2.waitKey(1) & 0xFF == ord('q'): break
+def result_rearrange(result) :
+    if len(result) < 2 : return result
 
-def main(_argv):
-    # opening phase
-    # opening_video()
+    p = list()
+    f = list()
 
+    # split results in pass/fail
+    for item in result :
+        if item[-1] : p.append(item)
+        else : f.append(item)
+
+    # pass rearrange by id
+    for i in range(len(p)-1) :
+        if p[i][0] > p[i+1][0] : p[i], p[i+1] = p[i+1], p[i]
+
+    # fail rearrange by time
+    for i in range(len(f)-1) :
+        if f[i][2]-f[i][1] < f[i+1][2]-f[i+1][1] : f[i], f[i+1] = f[i+1], f[i]
+
+    return p + f
+
+def result_phase(screen, result, is_game) :
+    # id, pass, time
+    surf00 = pygame.font.Font('freesansbold.ttf', 40).render("ID", True, [0, 0, 0])
+    rect00 = surf00.get_rect()
+    rect00.center = (824, 552) # height +60
+    screen.blit(surf00, rect00)
+
+    surf01 = pygame.font.Font('freesansbold.ttf', 40).render("PASS", True, [0, 0, 0])
+    rect01 = surf01.get_rect()
+    rect01.center = (942, 552)
+    screen.blit(surf01, rect01)
+
+    surf02 = pygame.font.Font('freesansbold.ttf', 40).render("TIME", True, [0, 0, 0])
+    rect02 = surf02.get_rect()
+    rect02.center = (1074, 552)
+    screen.blit(surf02, rect02)
+
+    if result :
+        # else occured by webcam error
+        r = result_rearrange(result)
+        for i in range(len(r)) :
+            surf10 = pygame.font.Font('freesansbold.ttf', 40).render(str(r[i][0]), True, [0, 0, 0])
+            rect10 = surf10.get_rect()
+            rect10.center = (824, 612+60*i)
+            screen.blit(surf10, rect10)
+
+            surf11 = pygame.font.Font('freesansbold.ttf', 40).render("PASS" if r[i][3] else "FAIL", True, [0, 0, 0])
+            rect11 = surf11.get_rect()
+            rect11.center = (942, 612+60*i)
+            screen.blit(surf11, rect11)
+
+            surf12 = pygame.font.Font('freesansbold.ttf', 40).render("" if r[i][3] else "{:>4.1f}".format(r[i][2]-r[i][1]), True, [0, 0, 0])
+            rect12 = surf12.get_rect()
+            rect12.center = (1074, 612+60*i)
+            screen.blit(surf12, rect12)
+
+    # handling button event
+    while is_game:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                is_game = False
+                break
+
+        mouse = pygame.mouse.get_pos()
+        click = pygame.mouse.get_pressed()
+
+        # left button
+        # w = width, h = height, c = coordinate, l = length
+        b1_wc, b1_hc, b1_wl, b1_hl = 507, 792, 149, 214
+        if b1_wc + b1_wl > mouse[0] > b1_wc and b1_hc + b1_hl > mouse[1] > b1_hc:
+            if click[0] :
+                screen.fill([0, 0, 0])
+                screen.blit(pygame.transform.scale(pygame.image.load('loading.png'), (1920, 1080)), [0, 0])
+                pygame.display.update()
+                break
+
+        # right button
+        b2_wc, b2_hc, b2_wl, b2_hl = 1249, 792, 149, 214
+        if b2_wc + b2_wl > mouse[0] > b2_wc and b2_hc + b2_hl > mouse[1] > b2_hc:
+            if click[0]:
+                is_game = False
+                break
+
+        pygame.display.update()
+
+    return is_game
+
+def main(_argv) :
     # intro phase
     intro_screen()
 
@@ -474,31 +495,32 @@ def main(_argv):
     saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
     infer = saved_model_loaded.signatures['serving_default'] # out = None
 
-    # main game phase
-    # begin video capture
-    vid = cv2.VideoCapture(0) # 0 = int(video_path) = webcam
-    vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) # will get from webcam max constant?
-    vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    is_game = True
+    while is_game :
+        # main game phase
+        vid = cv2.VideoCapture(0) # 0 = int(video_path) = webcam
+        vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) # will get from webcam max constant?
+        vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    opening_video()
+        opening_video()
 
-    pygame.display.set_caption("main game playing")
-    surface = pygame.display.set_mode((1920, 1080)) # screen succeed?
-    surface.blit(pygame.transform.scale(pygame.image.load("tagger.png"), (1920, 1080)), [0, 0])
-    pygame.display.update()
+        pygame.display.set_caption("main game playing")
+        surface = pygame.display.set_mode((1920, 1080)) # screen succeed?
+        surface.blit(pygame.transform.scale(pygame.image.load("movie_end.png"), (1920, 1080)), [0, 0])
+        pygame.display.update()
 
-    result = person_track(vid, tracker, infer, encoder, surface) # while video is running
-    print(result)
+        result = person_track(vid, tracker, infer, encoder, surface) # while video is running
 
-    # result phase
-    pygame.display.set_caption("result")
-    surface = pygame.display.set_mode((1920, 1080))  # screen succeed?
-    surface.blit(pygame.transform.scale(pygame.image.load("result.png"), (1920, 1080)), [0, 0])
-    pygame.display.update()
-    time.sleep(3)
+        # result phase
+        pygame.display.set_caption("result")
+        surface = pygame.display.set_mode((1920, 1080))  # screen succeed?
+        surface.blit(pygame.transform.scale(pygame.image.load("result.png"), (1920, 1080)), [0, 0])
+        pygame.display.update()
+
+        is_game = result_phase(surface, result, is_game)
+        cv2.destroyAllWindows()
 
     pygame.quit()
-    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     try:
